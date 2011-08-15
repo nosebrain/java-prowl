@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://nosebrain.de/prowl/xml" targetNamespace="http://nosebrain.de/prowl/xml">
+    <complexType name="ProwlType">
+    	<sequence maxOccurs="unbounded" minOccurs="0">
+    		<choice>
+    			<element name="retrieve" type="tns:RetrieveType"></element>
+    			<element name="success" type="tns:SuccessType"></element>
+    			<element name="error" type="tns:ErrorType"></element>
+    		</choice>
+    	</sequence>
+    </complexType>
+
+    <complexType name="SuccessType">
+    	<attribute name="code" type="int"></attribute>
+    	<attribute name="remaining" type="int"></attribute>
+    	<attribute name="resetdate" type="dateTime"></attribute>
+    </complexType>
+
+    <complexType name="ErrorType">
+    	<attribute name="code" type="int"></attribute>
+    </complexType>
+
+    <complexType name="RetrieveType">
+    	<attribute name="apikey" type="string"></attribute>
+    </complexType>
+
+    <element name="prowl" type="tns:ProwlType"></element>
+</schema>
