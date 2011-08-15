@@ -1,39 +1,126 @@
 package de.nosebrain.prowl;
 
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 
-import de.nosebrain.prowl.response.ProwlInfo;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.StatusLine;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.URIUtils;
+import org.apache.http.client.utils.URLEncodedUtils;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
+
+import de.nosebrain.prowl.xml.ProwlXML;
 
 /**
- * http://www.prowlapp.com/api.php
+ * <a href="http://www.prowlapp.com/api.php">Prowl API</a>
  * 
  * @author nosebrain
  */
 public class ProwlClient {
+	/**
+	 * the prowl api url (ssl)
+	 */
+	public static final String PROWL_API_SSL = "https://api.prowlapp.com/publicapi/";
 	
 	/**
-	 * TODO: document me
+	 * the prowl api url
 	 */
-	public static final URL PROWL_API_SSL;
+	public static final String PROWL_API = "http://api.prowlapp.com/publicapi/";
+	
+	private static final String JAXB_PACKAGE_DECLARATION = "de.nosebrain.prowl.xml";
+	
+	private static final String VERIFY_PATH = "verify";
+	private static final String SEND_NOTIFICATION_PATH = "add";
 	
 	/**
-	 * TODO: document me
+	 * implodes a collection to a string
+	 * @param collection the collection 
+	 * @param delimiter the delim to separate each collection item
+	 * @return the imploded string
 	 */
-	public static final URL PROWL_API;
+	protected static String implodeCollection(final Collection<?> collection, String delimiter) {
+		if (delimiter == null) {
+			delimiter = "";
+		}
+		
+		final StringBuilder builder = new StringBuilder();
+		
+		for (Object object : collection) {
+			builder.append(object);
+			builder.append(delimiter);
+		}
+		
+		final String result = builder.toString();
+		return result.substring(0, result.length() - delimiter.length());
+	}
 	
-	static {
-		try {
-			PROWL_API = new URL("http://api.prowlapp.com/publicapi/");
-			PROWL_API_SSL = new URL("https://api.prowlapp.com/publicapi/");
-		} catch (final MalformedURLException e) {
-			throw new RuntimeException(e);
+	/**
+	 * validates the provided notification
+	 * @param notification the notification to validate
+	 */
+	protected static void validate(final Notification notification) {
+		final StringBuilder builder = new StringBuilder();
+		final String application = notification.getApplication();
+		if (application == null) {
+			builder.append("application is null\n");
+		} else if (application.length() > Notification.APPLICATION_MAX_LENGTH) {
+			builder.append("application is too long (max: " + Notification.APPLICATION_MAX_LENGTH + ")\n");
+		}
+		
+		// check length
+		final String url = notification.getUrl();
+		if (url != null && url.length() > Notification.URL_MAX_LENGTH) {
+			builder.append("url is too long (max:" + Notification.URL_MAX_LENGTH + ")\n");
+		}
+		
+		final String event = notification.getEvent();
+		final String description = notification.getDescription();
+		if (event == null || event.isEmpty()) {
+			if (description == null || description.isEmpty()) {
+				// invalid event or description must be provided
+				builder.append("either event or description must be specified");
+			} else if (description.length() > Notification.DESCRIPTION_MAX_LENGTH) {
+				builder.append("description is too long (max: " + Notification.DESCRIPTION_MAX_LENGTH + ")\n");
+			}
+		} else if (event.length() > Notification.EVENT_MAX_LENGTH) {
+			builder.append("event is too long (max: " + Notification.EVENT_MAX_LENGTH + ")\n");
+		}
+		
+		final String errorsString = builder.toString();
+		if (!errorsString.isEmpty()) {
+			throw new IllegalArgumentException(errorsString);
 		}
 	}
 	
-	private final URL apiUrl;
+	/**
+	 * the api uri
+	 */
+	protected final URI apiUrl;
+	
+	/**
+	 * the client to use
+	 */
+	protected HttpClient client = new DefaultHttpClient();
 	
 	/**
 	 * apiUrl {@link #PROWL_API_SSL}
@@ -45,38 +132,116 @@ public class ProwlClient {
 	/**
 	 * @param apiUrl the api url
 	 */
-	public ProwlClient(final URL apiUrl) {
-		this.apiUrl = apiUrl;
+	public ProwlClient(final String apiUrl) {
+		try {
+			this.apiUrl = new URI(apiUrl);
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException(e);
+		}
 	}
 	
 	/**
 	 * @param notification the notification to send
 	 * @param apiKey the api keys the notification to send to
-	 * @return the info returned by the service
-	 * @throws ProwlException TODO: document me
+	 * @throws IOException if any IO error occurred
 	 */
-	public ProwlInfo<Void> sendNotification(final Notification notification, final String apiKey) throws ProwlException {
-		return this.sendNotification(notification, Collections.singletonList(apiKey));
+	public void sendNotification(final Notification notification, final String apiKey) throws IOException {
+		this.sendNotification(notification, Collections.singletonList(apiKey));
 	}
 
 	/**
 	 * @param notification the notification to send
 	 * @param apiKeys the api keys the notification to send to
-	 * @return the info returned by the service
-	 * @throws ProwlException TODO: document me
+	 * @throws IOException if any IO error occurred
 	 */
-	public ProwlInfo<Void> sendNotification(final Notification notification, final List<String> apiKeys) throws ProwlException {
+	public void sendNotification(final Notification notification, final List<String> apiKeys) throws IOException {
+		/*
+		 * validate notification (length, required values)
+		 */
+		validate(notification);
 		
+		final List<NameValuePair> params = this.createDefaultParams();
+		params.add(new BasicNameValuePair("apikey", implodeCollection(apiKeys, ",")));
+		params.add(new BasicNameValuePair("application", notification.getApplication()));
 		
-		return new ProwlInfo<Void>();
+		if (notification.getEvent() != null) {
+			params.add(new BasicNameValuePair("event", notification.getEvent()));
+		}
+		
+		if (notification.getDescription() != null) {
+			params.add(new BasicNameValuePair("description", notification.getDescription()));
+		}
+		
+		/*
+		 * optional values
+		 */
+		if (notification.getUrl() != null) {
+			params.add(new BasicNameValuePair("url", notification.getUrl().toString()));
+		}
+		
+		if (notification.getPriority() != null) {
+			params.add(new BasicNameValuePair("priority", String.valueOf(notification.getPriority().getValue())));
+		}
+		
+		final HttpPost sendNotification = new HttpPost(this.apiUrl.toString() + SEND_NOTIFICATION_PATH);
+		sendNotification.setEntity(new UrlEncodedFormEntity(params, "UTF-8"));
+		this.client.execute(sendNotification);
+		// TODO: parse success
 	}
 	
 	/**
-	 * 
-	 * @param apiKey
-	 * @return
+	 * @param apiKey the api key to verify
+	 * @return <code>true</code> iff the api key is valid
+	 * @throws IOException if any IO error occurred
 	 */
-	public boolean verify(final String apiKey) {
-		return false;
+	public boolean verify(final String apiKey) throws IOException {		
+		try {
+			final List<NameValuePair> params = this.createDefaultParams();
+			params.add(new BasicNameValuePair("apikey", apiKey));
+			final URI uri = URIUtils.createURI(this.apiUrl.getScheme(), this.apiUrl.getHost(), this.apiUrl.getPort(), this.apiUrl.getPath() + VERIFY_PATH,  URLEncodedUtils.format(params, "UTF-8"), null);
+			final HttpGet verify = new HttpGet(uri);
+			
+			final HttpResponse response = this.client.execute(verify);
+			final StatusLine statusLine = response.getStatusLine();
+			return statusLine.getStatusCode() == 200;
+		} catch (URISyntaxException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	protected ProwlXML parseResponse(final HttpResponse response) throws IOException {
+		final HttpEntity entity = response.getEntity();
+		if (entity != null) {
+		    final InputStream instream = entity.getContent();
+		    return this.parseXML(instream);
+		}
+		return null;
+	}
+
+	protected ProwlXML parseXML(final InputStream instream) throws IOException {
+		try {
+		    final Reader reader = new InputStreamReader(instream);
+		    final JAXBContext context = JAXBContext.newInstance(JAXB_PACKAGE_DECLARATION, this.getClass().getClassLoader());
+		    final Unmarshaller unmarshaller = context.createUnmarshaller();
+		    @SuppressWarnings("unchecked")
+			final JAXBElement<ProwlXML> unmarshal = (JAXBElement<ProwlXML>) unmarshaller.unmarshal(reader);
+		    return unmarshal.getValue();
+		} catch (JAXBException e) {
+			throw new IllegalStateException(e);
+			
+		} finally {
+		    instream.close();
+		}
+	}
+	
+	protected List<NameValuePair> createDefaultParams() {
+		return new LinkedList<NameValuePair>();
+	}
+
+	/**
+	 * @param client the client to set
+	 */
+	public void setClient(HttpClient client) {
+		this.client = client;
 	}
 }

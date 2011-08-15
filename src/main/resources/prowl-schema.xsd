@@ -1,28 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://nosebrain.de/prowl/xml" targetNamespace="http://nosebrain.de/prowl/xml">
-    <complexType name="ProwlType">
-    	<sequence maxOccurs="unbounded" minOccurs="0">
-    		<choice>
-    			<element name="retrieve" type="tns:RetrieveType"></element>
-    			<element name="success" type="tns:SuccessType"></element>
-    			<element name="error" type="tns:ErrorType"></element>
-    		</choice>
-    	</sequence>
-    </complexType>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 
-    <complexType name="SuccessType">
-    	<attribute name="code" type="int"></attribute>
-    	<attribute name="remaining" type="int"></attribute>
-    	<attribute name="resetdate" type="dateTime"></attribute>
-    </complexType>
-
-    <complexType name="ErrorType">
-    	<attribute name="code" type="int"></attribute>
-    </complexType>
-
-    <complexType name="RetrieveType">
-    	<attribute name="apikey" type="string"></attribute>
-    </complexType>
-
-    <element name="prowl" type="tns:ProwlType"></element>
-</schema>
+	<!--
+		root element
+	-->
+	<xsd:element name="prowl" type="ProwlXML" />
+	
+	<xsd:complexType name="ProwlXML">
+		<xsd:sequence>
+			<xsd:choice>
+				<xsd:element name="success" type="SuccessType" />
+				<xsd:element name="retrieve" type="RetrieveType" />
+				<xsd:element name="error" type="ErrorType" />
+			</xsd:choice>
+		</xsd:sequence>
+	</xsd:complexType>
+	
+	<xsd:complexType name="SuccessType">
+    	<xsd:attribute name="code" type="xsd:int" />
+    	<xsd:attribute name="remaining" type="xsd:int" />
+    	<xsd:attribute name="resetdate" type="xsd:int" />
+    </xsd:complexType>
+	
+	<xsd:complexType name="ErrorType">
+		<xsd:simpleContent>
+			<xsd:extension base="xsd:string">
+				<xsd:attribute name="code" type="xsd:int" />
+			</xsd:extension>
+		</xsd:simpleContent>    	
+    </xsd:complexType>
+    
+    <xsd:complexType name="RetrieveType">
+    	<xsd:attribute name="apikey" type="xsd:string" />
+    	<xsd:attribute name="token" type="xsd:string" />
+    	<xsd:attribute name="url" type="xsd:string" />
+    </xsd:complexType>
+</xsd:schema>
