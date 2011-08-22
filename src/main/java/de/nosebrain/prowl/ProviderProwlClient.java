@@ -106,7 +106,7 @@ public class ProviderProwlClient extends ProwlClient {
 		try {
 			final List<NameValuePair> params = this.createDefaultParams();
 			params.add(new BasicNameValuePair("token", token));
-			final URI uri = URIUtils.createURI(this.apiUrl.getScheme(), this.apiUrl.getHost(), this.apiUrl.getPort(), this.apiUrl.getPath() + RETRIEVE_TOKEN_PATH,  URLEncodedUtils.format(params, "UTF-8"), null);
+			final URI uri = URIUtils.createURI(this.apiUrl.getScheme(), this.apiUrl.getHost(), this.apiUrl.getPort(), this.apiUrl.getPath() + RETRIEVE_APIKEY_PATH,  URLEncodedUtils.format(params, "UTF-8"), null);
 			final HttpGet retrieveToken = new HttpGet(uri);
 			final HttpResponse response = this.client.execute(retrieveToken);
 			
@@ -123,6 +123,11 @@ public class ProviderProwlClient extends ProwlClient {
 		}
 	}
 	
+	/**
+	 * add providerkey to default param list
+	 * (non-Javadoc)
+	 * @see de.nosebrain.prowl.ProwlClient#createDefaultParams()
+	 */
 	@Override
 	protected List<NameValuePair> createDefaultParams() {
 		final List<NameValuePair> params = super.createDefaultParams();

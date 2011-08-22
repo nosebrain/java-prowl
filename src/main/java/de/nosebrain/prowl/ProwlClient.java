@@ -50,6 +50,7 @@ import org.apache.http.client.utils.URIUtils;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.util.EntityUtils;
 
 import de.nosebrain.prowl.xml.ProwlXML;
 
@@ -207,8 +208,8 @@ public class ProwlClient {
 		
 		final HttpPost sendNotification = new HttpPost(this.apiUrl.toString() + SEND_NOTIFICATION_PATH);
 		sendNotification.setEntity(new UrlEncodedFormEntity(params, "UTF-8"));
-		this.client.execute(sendNotification);
-		// TODO: parse success
+		final HttpResponse response = this.client.execute(sendNotification);
+		this.releaseConnection(response); // TODO: parse success
 	}
 	
 	/**
@@ -225,17 +226,28 @@ public class ProwlClient {
 			
 			final HttpResponse response = this.client.execute(verify);
 			final StatusLine statusLine = response.getStatusLine();
+			
+			this.releaseConnection(response);
 			return statusLine.getStatusCode() == 200;
 		} catch (URISyntaxException e) {
 			throw new RuntimeException(e);
 		}
 	}
+	
+	private void releaseConnection(final HttpResponse response) throws IOException {
+		final HttpEntity entity = response.getEntity();
+		EntityUtils.consume(entity);
+	}
 
 	protected ProwlXML parseResponse(final HttpResponse response) throws IOException {
 		final HttpEntity entity = response.getEntity();
 		if (entity != null) {
-		    final InputStream instream = entity.getContent();
-		    return this.parseXML(instream);
+			try {
+				final InputStream instream = entity.getContent();
+			    return this.parseXML(instream);
+			} finally {
+				EntityUtils.consume(entity);
+			}
 		}
 		return null;
 	}
@@ -250,12 +262,12 @@ public class ProwlClient {
 		    return unmarshal.getValue();
 		} catch (JAXBException e) {
 			throw new IllegalStateException(e);
-			
-		} finally {
-		    instream.close();
 		}
 	}
 	
+	/**
+	 * @return the default params
+	 */
 	protected List<NameValuePair> createDefaultParams() {
 		return new LinkedList<NameValuePair>();
 	}
