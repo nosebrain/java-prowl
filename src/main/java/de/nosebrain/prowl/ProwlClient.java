@@ -121,7 +121,7 @@ public class ProwlClient {
 		if (event == null || event.isEmpty()) {
 			if (description == null || description.isEmpty()) {
 				// invalid event or description must be provided
-				builder.append("either event or description must be specified");
+				builder.append("either event or description must be specified\n");
 			} else if (description.length() > Notification.DESCRIPTION_MAX_LENGTH) {
 				builder.append("description is too long (max: " + Notification.DESCRIPTION_MAX_LENGTH + ")\n");
 			}
