@@ -30,7 +30,7 @@ import java.net.URL;
  */
 public class Notification {
 	
-	private static NotificationPriority DEFAULT_PRIORITY = NotificationPriority.NORMAL;
+	private static final NotificationPriority DEFAULT_PRIORITY = NotificationPriority.NORMAL;
 	
 	/**
 	 * the max length of the {@link #getApplication()} property
