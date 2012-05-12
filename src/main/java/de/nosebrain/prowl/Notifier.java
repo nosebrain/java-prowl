@@ -9,6 +9,10 @@ import java.util.Arrays;
 public class Notifier {
 
 	/**
+	 * TODO:
+	 * - add provider key param
+	 * - add priority
+	 * 
 	 * main method to access {@link ProwlClient} via command line
 	 * @param args
 	 * @throws Exception
