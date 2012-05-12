@@ -29,22 +29,22 @@ import java.net.URL;
  * @author nosebrain
  */
 public class Token {
-	
+
 	private URL url;
-	
+
 	private String token;
 
 	/**
 	 * @return the url
 	 */
 	public URL getUrl() {
-		return url;
+		return this.url;
 	}
 
 	/**
 	 * @param url the url to set
 	 */
-	public void setUrl(URL url) {
+	public void setUrl(final URL url) {
 		this.url = url;
 	}
 
@@ -52,15 +52,13 @@ public class Token {
 	 * @return the token
 	 */
 	public String getToken() {
-		return token;
+		return this.token;
 	}
 
 	/**
 	 * @param token the token to set
 	 */
-	public void setToken(String token) {
+	public void setToken(final String token) {
 		this.token = token;
 	}
-	
-	
 }
